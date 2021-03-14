@@ -32,7 +32,7 @@ TODO.
 - Download latest BepInEx bleeding edge build ([download](https://builds.bepis.io/projects/bepinex_be/350/BepInEx_UnityIL2CPP_x86_07a69cf_6.0.0-be.350.zip)).
 - Extract the contents of BepInEx_IL2CPP_x86.zip into your games's root directory.
 - Run the game once to compleate BepInEx configuration process.
-- Copy all .dll libraries exept **netstandard.dll** from *BepInEx/core* and *BepInEx/unhollowed* into project's *libs* directory.
+- Copy all .dll libraries except **netstandard.dll** from *BepInEx/core* and *BepInEx/unhollowed* into project's *libs* directory.
 - Build the project with eather Visual Studio or by calling the command *dotnet build*.
 - Copy *Metamorphosis.dll* from build directory to *BepInEx/plugins* in your game's root directory.
 
