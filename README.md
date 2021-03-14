@@ -10,7 +10,7 @@ Metamorphs can take on appearance of any other non Metamorph player.
 By touching other players, Metamorph automaticaly collects their DNA samples.
 Using their DNA, they can tako on their appearance.
 Metamorph can only hold the DNA of the last player touched.
-After toucheng another player, a new button will become active.
+After touching another player, a new button will become active.
 Upon pressing the new button (or pressing F key on your keyboard), Metamorphosis will take place.
 Metamorphosis is only active for a duration (duration is set in the lobby game options menu).
 After Metamorphosis expires a new cooldown is started, which prevents the Metamorph from collecting new DNA samples.
