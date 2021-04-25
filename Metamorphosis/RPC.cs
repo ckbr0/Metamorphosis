@@ -6,7 +6,9 @@ namespace Metamorphosis
 {
 	enum CustomRPC
 	{
-		SyncCustomSettings = 61,
+		SetMetamorphs = 60,
+		SetMorph = 61,
+		SyncCustomSettings = 62,
 	}
 
 	enum RPC

@@ -1,6 +1,6 @@
 using HarmonyLib;
 
-using PlayerInfo = GameData.GOOIGLGKMCE;
+using PlayerInfo = GameData.LGBOMGHJELL;
 
 namespace Metamorphosis
 {
@@ -8,13 +8,6 @@ namespace Metamorphosis
     public class MeetingHudPatch 
     {
         /*[HarmonyPrefix]
-        [HarmonyPatch(typeof(MeetingHud), "BGADFCJCOAA")]
-        public static void Prefix1(PlayerInfo EKCPHFOGJPA)
-        {
-            Metamorphosis.Logger.LogMessage($"BGADFCJCOAA: {EKCPHFOGJPA.FMAAJCIEMEH}");
-        }*/
-
-        [HarmonyPrefix]
         [HarmonyPatch(nameof(MeetingHud.EEFGLJPBAHF))]
         public static void Prefix(PlayerInfo EKCPHFOGJPA)
         {
@@ -33,7 +26,7 @@ namespace Metamorphosis
                     }
                 }
             }
-        }
+        }*/
 
         [HarmonyPostfix]
         [HarmonyPatch(nameof(MeetingHud.Close))]
@@ -42,7 +35,8 @@ namespace Metamorphosis
             if (PlayerControlPatch.Metamorphs != null)
             {
                 PlayerControl localPlayer = PlayerControl.LocalPlayer;
-                if (PlayerControlPatch.IsMetamorph(localPlayer))
+                Metamorph outMetamorph = null;
+                if (PlayerControlPatch.IsMetamorph(localPlayer.PlayerId, out outMetamorph))
                 {
                     HudManagerPatch.MorphButton.StartCooldown(HudManagerPatch.MorphButton.CooldownDuration+8.0f);
                 }
@@ -50,6 +44,13 @@ namespace Metamorphosis
         }
 
         /*[HarmonyPrefix]
+        [HarmonyPatch(typeof(MeetingHud), "BGADFCJCOAA")]
+        public static void Prefix1(PlayerInfo EKCPHFOGJPA)
+        {
+            Metamorphosis.Logger.LogMessage($"BGADFCJCOAA: {EKCPHFOGJPA.FMAAJCIEMEH}");
+        }
+
+        [HarmonyPrefix]
         [HarmonyPatch(typeof(MeetingHud), "JKIFEGOFNDP")]
         public static void Prefix3(PlayerInfo EKCPHFOGJPA)
         {

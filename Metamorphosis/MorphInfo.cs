@@ -1,4 +1,4 @@
-using PlayerInfo = GameData.GOOIGLGKMCE;
+using PlayerInfo = GameData.LGBOMGHJELL;
 
 namespace Metamorphosis
 {
@@ -6,14 +6,14 @@ namespace Metamorphosis
     {
         public byte PlayerId { get; }
         public string Name { get; }
-        public byte ColorId { get; }
+        public int ColorId { get; }
         public uint SkinId { get; }
         public uint HatId { get; }
         public uint PetId { get; }
 
         public MorphInfo(byte playerId,
                          string name,
-                         byte colorId,
+                         int colorId,
                          uint skinId,
                          uint hatId,
                          uint petId)
@@ -28,10 +28,10 @@ namespace Metamorphosis
 
         public MorphInfo(PlayerControl playerControl) : this(playerControl.PlayerId,
                                                              playerControl.name,
-                                                             playerControl.PKMHEDAKKHE.ACBLKMFEPKC,
-                                                             playerControl.PKMHEDAKKHE.FHNDEEGICJP,
-                                                             playerControl.PKMHEDAKKHE.KCILOGLJODF,
-                                                             playerControl.PKMHEDAKKHE.HIJJGKGBKOJ)
+                                                             playerControl.FIMGDJOCIGD.IMMNCAGJJJC,
+                                                             playerControl.FIMGDJOCIGD.CGNMKICGLOG,
+                                                             playerControl.FIMGDJOCIGD.CPGFLBANALE,
+                                                             playerControl.FIMGDJOCIGD.LBHODBKCBKA)
         {
         }
     }

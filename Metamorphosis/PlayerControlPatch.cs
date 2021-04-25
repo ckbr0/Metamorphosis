@@ -8,53 +8,72 @@ using UnhollowerBaseLib;
 using BepInEx;
 using BepInEx.IL2CPP;
 
-using PlayerInfo = GameData.GOOIGLGKMCE;
+using PlayerInfo = GameData.LGBOMGHJELL;
 
 namespace Metamorphosis
 {
 	[HarmonyPatch(typeof(PlayerControl))]
 	class PlayerControlPatch
 	{
-		public static List<Metamorph> Metamorphs;
+		public static List<Metamorph> Metamorphs = null;
 
-		public static List<PlayerControl> GetInfected(Il2CppReferenceArray<PlayerInfo> infections)
+		public static List<PlayerControl> GetInfected(Il2CppReferenceArray<PlayerInfo> infections, ref List<byte> infectedIds)
 		{
 			List<PlayerControl> infected = new List<PlayerControl>();
 
 			foreach (PlayerInfo infection in infections)
 			{
-				PlayerControl infectedControl = GetPlayerControlById(infection.IBJBIALCEKB.PlayerId);
+				byte playerId = infection.GJPBCGFPMOD.PlayerId;
+				PlayerControl infectedControl = GetPlayerControlById(playerId);
 				if (infectedControl != null)
                 {
 					infected.Add(infectedControl);
+					infectedIds.Add(playerId);
 				}
 			}
 
 			return infected;
 		}
 
-		public static bool IsMetamorph(PlayerControl playerControl)
+		public static bool IsMetamorph(byte playerId, out Metamorph outMetamorph)
         {
-			foreach (Metamorph metamorph in Metamorphs)
-            {
-				if (metamorph.PlayerId == playerControl.PlayerId)
-                {
-					return true;
-                }
-            }
+			outMetamorph = null;
+			if (Metamorphs != null)
+			{
+				foreach (Metamorph metamorph in Metamorphs)
+				{
+					if (metamorph.PlayerId == playerId)
+					{
+						outMetamorph = metamorph;
+						return true;
+					}
+				}
+			}
+			return false;
+        }
+
+		public static bool IsMetamorph(byte playerId)
+        {
+			if (Metamorphs != null)
+			{
+				foreach (Metamorph metamorph in Metamorphs)
+				{
+					if (metamorph.PlayerId == playerId)
+					{
+						return true;
+					}
+				}
+			}
 			return false;
         }
 
 		public static void InitMetamorphs()
         {
+			if (Metamorphs != null)
+				Metamorphs.Clear();
+			
 			Metamorphs = new List<Metamorph>();
-
-			/*if (HudManagerPatch.morphButton != null)
-			{
-				//HudManagerPatch.morphButton.visible = false;
-				//HudManagerPatch.morphButton.clickable = false;
-				//HudManagerPatch.morphButton.Update();
-			}*/
+			Metamorph.LocalMetamorph = null;
 		}
 
 		public static PlayerControl GetPlayerControlById(byte id)
@@ -73,12 +92,9 @@ namespace Metamorphosis
 		[HarmonyPatch(nameof(PlayerControl.FixedUpdate))]
 		public static void Postfix(PlayerControl __instance)
 		{
-            if (Metamorphs != null)
+            if (Metamorph.LocalMetamorph != null)
             {
-                foreach (Metamorph metamorph in Metamorphs)
-                {
-                    metamorph.FixedUpdate();
-                }
+				Metamorph.LocalMetamorph.FixedUpdate();
             }
         }
 
@@ -88,74 +104,65 @@ namespace Metamorphosis
 		{
 			switch (ACCJCEHMKLN)
 			{
-				case (byte)RPC.SetInfected:
+				case (byte)CustomRPC.SetMetamorphs:
 					{
-						HFPCBBHJIPJ.Position = 2;
-						Metamorphosis.Logger.LogMessage(String.Format("HandleRpc SetInfected"));
-						Metamorphosis.Logger.LogMessage(String.Format($"HandleRpc SetInfected MessageReader Length: {HFPCBBHJIPJ.Length}"));
-						Metamorphosis.Logger.LogMessage(String.Format($"HandleRpc SetInfected MessageReader BytesRemaining: {HFPCBBHJIPJ.BytesRemaining}"));
+						InitMetamorphs();
 
 						byte[] infections = HFPCBBHJIPJ.ReadBytesAndSize();
-						Metamorphosis.Logger.LogMessage(String.Format($"HandleRpc SetInfected Length: {infections.Length}"));
-						InitMetamorphs();
+						Metamorphosis.Logger.LogMessage(String.Format($"HandleRpc SetMetamorphs Length: {infections.Length}"));
 						foreach (byte infectedId in infections)
 						{
 							PlayerControl infectedControl = GetPlayerControlById(infectedId);
 							if (infectedControl != null)
                             {
-								Metamorphosis.Logger.LogMessage(String.Format($"HandleRpc SetInfected Add Metamorph: {infectedId}"));
-								Metamorphs.Add(new Metamorph(infectedControl));
-							}
-							if (infectedControl.PlayerId == PlayerControl.LocalPlayer.PlayerId)
-							{
-								Metamorphosis.Logger.LogMessage(String.Format($"HandleRpc SetInfected MorphButton StartCooldown: {infectedControl.PlayerId}"));
-								if (HudManagerPatch.MorphButton != null)
-									HudManagerPatch.MorphButton.StartCooldown(HudManagerPatch.MorphButton.CooldownDuration+9.0f);
-							}
-						}
-						Metamorphosis.Logger.LogMessage(String.Format("HandleRpc SetInfected metamorphs created"));
-						//HFPCBBHJIPJ.Position = 0;
-
-						break;
-					}
-				case (byte)RPC.SetName:
-					{
-						Metamorphosis.Logger.LogMessage(String.Format("HandleRpc SetName"));
-						if (Metamorphs != null)
-						{
-							if (IsMetamorph(PlayerControl.LocalPlayer))
-							{
-								foreach (Metamorph metamorph in Metamorphs)
+								Metamorph metamorph = new Metamorph(infectedControl);
+								Metamorphs.Add(metamorph);
+								Metamorphosis.Logger.LogDebug(String.Format($"HandleRpc SetMetamorphs Add Metamorph: {metamorph.PlayerId}"));
+								if (metamorph.PlayerId == PlayerControl.LocalPlayer.PlayerId)
 								{
-									metamorph.SetOriginalName();
+									Metamorphosis.Logger.LogDebug(String.Format($"HandleRpc SetMetamorphs is local player {metamorph.PlayerId}"));
+									Metamorph.LocalMetamorph = metamorph;
+									if (HudManagerPatch.MorphButton != null)
+									{
+										HudManagerPatch.MorphButton.StartCooldown(CustomGameOptions.MorphCooldown+9.0f);
+										HudManagerPatch.MorphButton.EffectDuration = CustomGameOptions.MorphDuration;
+										HudManagerPatch.MorphButton.CooldownDuration = CustomGameOptions.MorphCooldown;
+									}
 								}
 							}
 						}
+
 						break;
 					}
-				case (byte)RPC.SetColor:
+				case (byte)CustomRPC.SetMorph:
 					{
-						Metamorphosis.Logger.LogMessage("HandleRpc SetColor");
-						break;
-					}
-				case (byte)RPC.SetSkin:
-					{
-						Metamorphosis.Logger.LogMessage("HandleRpc SetSkin");
-						break;
-					}
-				case (byte)RPC.SetHat:
-					{
-						Metamorphosis.Logger.LogMessage("HandleRpc SetHat");
-						break;
-					}
-				case (byte)RPC.SetPet:
-					{
-						Metamorphosis.Logger.LogMessage("HandleRpc SetPet");
+						Metamorphosis.Logger.LogDebug("HandleRpc SetMorph");
+
+						byte playerId = HFPCBBHJIPJ.ReadByte();
+            			string name = HFPCBBHJIPJ.ReadString();
+            			byte colorId = HFPCBBHJIPJ.ReadByte();
+						uint skinId = HFPCBBHJIPJ.ReadUInt32();
+						uint hatId = HFPCBBHJIPJ.ReadUInt32();
+						uint petId = HFPCBBHJIPJ.ReadUInt32();
+
+						MorphInfo target = new MorphInfo(playerId, name, colorId, skinId, hatId, petId);
+
+						Metamorph metamorph;				
+						if (IsMetamorph(playerId, out metamorph))
+						{
+							
+							bool updateName = !IsMetamorph(PlayerControl.LocalPlayer.PlayerId);
+							metamorph.MorphTo(target, updateName);
+						}
+						else
+						{
+							Metamorphosis.Logger.LogError("HandleRpc SetMorph: Player is not a Metamorph");
+						}
 						break;
 					}
 				case (byte)RPC.StartMeeting:
 					{
-						Metamorphosis.Logger.LogMessage("HandleRpc StartMeeting");
+						Metamorphosis.Logger.LogDebug("HandleRpc StartMeeting");
 						if (PlayerControlPatch.Metamorphs != null)
 						{
 							foreach (Metamorph metamorph in PlayerControlPatch.Metamorphs)
@@ -176,75 +183,45 @@ namespace Metamorphosis
 
 		[HarmonyPostfix]
 		[HarmonyPatch(nameof(PlayerControl.RpcSetInfected))]
-		public static void Postfix(Il2CppReferenceArray<PlayerInfo> FMAOEJEHPAO)
+		public static void Postfix(Il2CppReferenceArray<PlayerInfo> BHNEINNHPIJ)
 		{
+			Metamorphosis.Logger.LogDebug($"RcpSetInfected postfix start");
 			InitMetamorphs();
 
-			List<PlayerControl> infected = GetInfected(FMAOEJEHPAO);
+			List<byte> infectedIds = new List<byte>();
+			List<PlayerControl> infected = GetInfected(BHNEINNHPIJ, ref infectedIds);
 			foreach (PlayerControl playerControl in infected)
             {
-				Metamorphs.Add(new Metamorph(playerControl));
+				Metamorph metamorph = new Metamorph(playerControl);
+				Metamorphs.Add(metamorph);
+				Metamorphosis.Logger.LogDebug($"RcpSetInfected postfix: {metamorph.PlayerId} added");
 				if (playerControl.PlayerId == PlayerControl.LocalPlayer.PlayerId)
-				{
+				{	
+					Metamorphosis.Logger.LogDebug($"RcpSetInfected postfix: Metamorph is a local player {metamorph.PlayerId}");
+					Metamorph.LocalMetamorph = metamorph;
 					if (HudManagerPatch.MorphButton != null)
-						HudManagerPatch.MorphButton.StartCooldown(HudManagerPatch.MorphButton.CooldownDuration+9.0f);
-				}
-            }
-			Metamorphosis.Logger.LogMessage("RcpSetInfected postfix");
-		}
-
-		[HarmonyPostfix]
-		[HarmonyPatch(nameof(PlayerControl.RpcSetName))]
-		public static void Postfix(string ILCMIGKHPJE)
-		{
-			Metamorphosis.Logger.LogMessage("RpcSetName postfix: " + ILCMIGKHPJE);
-			if (Metamorphs != null)
-			{
-				if (IsMetamorph(PlayerControl.LocalPlayer))
-				{
-					//Metamorphosis.Logger.LogMessage($"RpcSetName postfix: local player is metamorph {PlayerControl.LocalPlayer.PlayerId}");
-					foreach (Metamorph metamorph in Metamorphs)
 					{
-						//Metamorphosis.Logger.LogMessage($"RpcSetName postfix: playerId: {metamorph.PlayerId}");
-						metamorph.SetOriginalName();
+						HudManagerPatch.MorphButton.StartCooldown(CustomGameOptions.MorphCooldown+9.0f);
+						HudManagerPatch.MorphButton.EffectDuration = CustomGameOptions.MorphDuration;
+						HudManagerPatch.MorphButton.CooldownDuration = CustomGameOptions.MorphCooldown;
 					}
 				}
-			}
-		}
+            }
 
-		[HarmonyPostfix]
-		[HarmonyPatch(nameof(PlayerControl.RpcSetColor))]
-		public static void Postfix(byte MCBMEOBLGBM)
-		{
-			Metamorphosis.Logger.LogMessage("RpcSetColor postfix: " + MCBMEOBLGBM);
-		}
+			MessageWriter writer = AmongUsClient.Instance.StartRpc(PlayerControl.LocalPlayer.NetId, (byte)CustomRPC.SetMetamorphs, Hazel.SendOption.Reliable);
 
-		[HarmonyPostfix]
-		[HarmonyPatch(nameof(PlayerControl.RpcSetPet))]
-		public static void Postfix(uint OKCKCDKKMPL)
-		{
-			Metamorphosis.Logger.LogMessage("RpcSetPet postfix: pet id: " + OKCKCDKKMPL);
-		}
+			writer.WriteBytesAndSize(infectedIds.ToArray());
 
-		[HarmonyPostfix]
-		[HarmonyPatch(nameof(PlayerControl.RpcSetHat))]
-		public static void Postfix2(uint GAHEEOBFPPM)
-		{
-			Metamorphosis.Logger.LogMessage("RpcSetHat postfix: hat id: " + GAHEEOBFPPM);
-		}
+			writer.EndMessage();
 
-		[HarmonyPostfix]
-		[HarmonyPatch(nameof(PlayerControl.RpcSetSkin))]
-		public static void Postfix3(uint JJJEILFGKOE)
-		{
-			Metamorphosis.Logger.LogMessage("RpcSetSkin postfix: hat id: " + JJJEILFGKOE);
+			Metamorphosis.Logger.LogDebug("RcpSetInfected postfix");
 		}
 
 		[HarmonyPrefix]
 		[HarmonyPatch(nameof(PlayerControl.RpcStartMeeting))]
-		public static void Prefix(PlayerInfo PLABNNNBHAC)
+		public static void Prefix(PlayerInfo MPNMHCKHHOD)
 		{
-			Metamorphosis.Logger.LogMessage("RpcStartMeeting Prefix");
+			Metamorphosis.Logger.LogDebug("RpcStartMeeting Prefix");
 			if (PlayerControlPatch.Metamorphs != null)
             {
                 foreach (Metamorph metamorph in PlayerControlPatch.Metamorphs)
@@ -256,7 +233,7 @@ namespace Metamorphosis
 
 		[HarmonyPostfix]
 		[HarmonyPatch(nameof(PlayerControl.RpcSyncSettings))]
-		public static void Postfix(PAMOPBEDCNI OMFKMPLOPPM)
+		public static void Postfix(CEIOGGEDKAN DJGAEEMDIDF)
 		{
 			if (PlayerControl.AllPlayerControls.Count > 1)
 			{

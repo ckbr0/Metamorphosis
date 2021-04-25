@@ -110,8 +110,9 @@ def ProcessArray(insideToReplace, shadowToReplace, array):
     return imArray
 
 if __name__ == '__main__':
-    imageFile = 'morphButton3_.png'
+    imageFile = 'morphButton.png'
     inputImage = Image.open(imageFile)
+    inputImage = inputImage.transpose(Image.FLIP_TOP_BOTTOM)
     inputArray = np.array(inputImage)
 
     print(f'Processing image {imageFile}')
@@ -124,8 +125,9 @@ if __name__ == '__main__':
     playerColors = np.array(list(PlayerColors.__dataclass_fields__.keys())[:-2]).reshape(-1,2)
     images = []
     progress = 0
+    # TODO: Currently very slow.
     for color in playerColors:
-        print(f'Progress: {progress} image out of {len(playerColors)}')
+        print(f'Progress: {progress+1} image out of {len(playerColors)}')
         progress += 1
         processedArray = ProcessArray(getattr(PlayerColors, color[0]), getattr(PlayerColors, color[1]), inputArray)
         processedImage = Image.fromarray(processedArray, 'RGBA')
@@ -134,13 +136,12 @@ if __name__ == '__main__':
                 resample=Image.BICUBIC)
         images.append(processedImage)
 
-    images = np.reshape(np.array(images), (-1, 6))
-   
+    numOfSprites = len(images)
+    images = np.reshape(np.array(images), (-1, int(numOfSprites)))
+    rows, cols = images.shape
+
     outputImage = get_concat_tile_resize(images)
-    outputImage.save("morphButtonArray.png")
-    
-    # Flip image horizontally
-    outputImage = outputImage.transpose(Image.FLIP_TOP_BOTTOM)
+    #outputImage.save("morphButtonArray.png")
    
     # Convert output image to array
     outputArray = np.array(outputImage)
@@ -152,11 +153,11 @@ if __name__ == '__main__':
     print(f'Output image byte count: {width*height*4}\n')
 
     # Format hex data
-    hexData = ["0x{:02X}".format(x) for x in outputArray.astype('uint8').tostring()]
+    hexData = ["0x{:02X}".format(x) for x in outputArray.astype('uint8').tobytes()]
     hexData = [hexData[i:i + 12] for i in range(0, len(hexData), 12)]
     hexData = [", ".join(l)+",\n"+ " "*12 for l in hexData]
     hexData = "".join(hexData).rstrip()
-    
+
     csCode = (
         f"// Auto generated file\n\n\n" \
         f"namespace Metamorphosis\n" \
@@ -164,7 +165,10 @@ if __name__ == '__main__':
         f"    public static class MorphButtonImage\n" \
         f"    {{\n" \
         f"        public static readonly int Width = {width};\n" \
+        f"        public static readonly int Cols = {cols};\n" \
         f"        public static readonly int Height = {height};\n" \
+        f"        public static readonly int Rows = {rows};\n" \
+        f"        public static readonly int NumberOfSprites = {numOfSprites};\n" \
         f"        public static readonly byte[] Data = \n" \
         f"        {{\n" \
         f"            {hexData}\n" \
@@ -177,4 +181,3 @@ if __name__ == '__main__':
     print(f'Writing c# array to {csFile}')
     csFile_ = open(csFile, 'w', encoding='utf-8')
     csFile_.write(csCode)
-

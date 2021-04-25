@@ -11,20 +11,18 @@ using UnhollowerBaseLib.Attributes;
 using AssemblyUnhollower;
 
 using UnityEngine;
+using UnityEngine.Events;
 using Object = UnityEngine.Object;
 using System.ComponentModel;
 
 namespace Metamorphosis
 {
-    public class MorphButton : IDisposable
+    public class MorphButton //: IDisposable
     {
         private KillButtonManager killButtonManager;
         private HudManager hudManager;
 
         private MorphInfo? morphTarget;
-        private MorphInfo? morphOriginal;
-
-        public Sprite ButtonSprite;
 
         public bool HudVisible { get; set; } = true;
 
@@ -45,11 +43,10 @@ namespace Metamorphosis
         public bool HasEffect { get { return EffectDuration > 0F; } }
         public bool IsEffectActive { get; private set; } = false;
 
+        private Texture2D texture;
         private Sprite[] sprites;
-        private byte currentMorphColorId;
 
-        private bool isDisposed;
-        //private byte[] imageData;
+        //private bool isDisposed;
 
         public MorphButton(HudManager hudManager)
         {
@@ -59,31 +56,34 @@ namespace Metamorphosis
 
         private void CreateButton(HudManager hudManager)
         {
-            if (killButtonManager != null || !hudManager?.KillButton /*|| imageData == null*/) return;
+            if (killButtonManager != null || !hudManager?.KillButton) return;
 
             killButtonManager = Object.Instantiate(hudManager.KillButton, hudManager.transform);
 
             // Load texture and create sprites
-            Texture2D tex = new Texture2D(MorphButtonImage.Width, MorphButtonImage.Height, TextureFormat.RGBA32, false);//, TextureFormat.RGBA32, Texture.GenerateAllMips, false, IntPtr.Zero);
-            tex.LoadRawTextureData(MorphButtonImage.Data);
-            tex.Apply();
+            texture = new Texture2D(MorphButtonImage.Width, MorphButtonImage.Height, TextureFormat.RGBA32, false);//, TextureFormat.RGBA32, Texture.GenerateAllMips, false, IntPtr.Zero);
+            texture.LoadRawTextureData(MorphButtonImage.Data);
+            texture.Apply(true, true);
 
-            sprites = new Sprite[12];
-            for (int i = 0; i < 12; i++)
+            int numSprites = MorphButtonImage.NumberOfSprites;
+            int cols = MorphButtonImage.Cols;
+            int rows = MorphButtonImage.Rows;
+            sprites = new Sprite[numSprites];
+            for (int i = 0; i < numSprites; i++)
             {
-                int k = i % 6;
-                int j = 1;
-                if (Math.Floor(i / 6.0f) > 0)
-                {
-                    j = 0;
-                }
-                sprites[i] = Sprite.Create(tex, new Rect(k*MorphButtonImage.Width/6, j*MorphButtonImage.Height/2, MorphButtonImage.Width/6, MorphButtonImage.Height/2), new Vector2(0.5f, 0.5f));
+                int j = i % (numSprites/rows);
+                //int j = 1;
+                int k = i / (numSprites/rows);
+
+                //Metamorphosis.Logger.LogMessage($"Create button: color id: {i}, ({j}, {k})");
+
+                sprites[i] = Sprite.Create(texture, new Rect(j*MorphButtonImage.Width/cols, k*MorphButtonImage.Height/rows, MorphButtonImage.Width/cols, MorphButtonImage.Height/rows), new Vector2(0.5f, 0.5f));
             }
-            killButtonManager.renderer.sprite = ButtonSprite = sprites[0];
+            //killButtonManager.renderer.sprite = sprites[0];
 
             PassiveButton button = killButtonManager.GetComponent<PassiveButton>();
             button.OnClick.RemoveAllListeners();
-            button.OnClick.AddListener(new Action(() =>
+            button.OnClick.AddListener((UnityAction)(() =>
             {
                 if (!IsUsable) return;
 
@@ -105,17 +105,18 @@ namespace Metamorphosis
                 return;
             }
 
+            if (Metamorph.LocalMetamorph == null)
+            {
+                Visible = false;
+            }
+
             Vector3 killPos = hudManager.KillButton.transform.localPosition;
             Vector3 repPos = hudManager.ReportButton.transform.localPosition;
             killButtonManager.transform.localPosition = new Vector3(killPos.x + 0.0f, repPos.y + 0.0f);
 
-            if (morphTarget.HasValue)
+            if (!morphTarget.HasValue)
             {
-                killButtonManager.renderer.sprite = sprites[morphTarget.Value.ColorId];
-            }
-            else
-            {
-                killButtonManager.renderer.sprite = sprites[currentMorphColorId];
+                killButtonManager.renderer.sprite = sprites[0];
             }
 
             if (IsCoolingDown && Visible && (PlayerControl.LocalPlayer.moveable || IsEffectActive))
@@ -131,9 +132,9 @@ namespace Metamorphosis
                 }
             }
 
-            if (isDisposed) return;
+            //if (isDisposed) return;
 
-            Clickable = morphTarget.HasValue || IsEffectActive;
+            Clickable = (morphTarget.HasValue || IsEffectActive) && PlayerControl.LocalPlayer.moveable;
 
             killButtonManager.gameObject.SetActive(HudVisible && Visible);
             killButtonManager.renderer.enabled = HudVisible && Visible;
@@ -161,7 +162,7 @@ namespace Metamorphosis
 
             killButtonManager.isCoolingDown = IsCoolingDown;
 
-            killButtonManager.TimerText.Text = Mathf.CeilToInt(CooldownTime).ToString();
+            killButtonManager.TimerText.text = Mathf.CeilToInt(CooldownTime).ToString();
             killButtonManager.TimerText.gameObject.SetActive(HudVisible && Visible && killButtonManager.isCoolingDown);
         }
 
@@ -178,83 +179,66 @@ namespace Metamorphosis
 
             CooldownTime = EffectDuration;
 
-            killButtonManager.TimerText.Color = new Color(0F, 0.8F, 0F);
+            killButtonManager.TimerText.color = new Color(0F, 0.8F, 0F);
         }
 
-        public void EndEffect(bool startCooldown = true)
+        public void EndEffect(bool callMorphBack = true)
         {
             if (IsEffectActive)
             {
-                CancelMorph();
-
                 IsEffectActive = false;
 
-                killButtonManager.TimerText.Color = Palette.EnabledColor;
+                killButtonManager.TimerText.color = Palette.EnabledColor;
+
+                ClearTarget();
+
+                if (callMorphBack)
+                    Metamorph.LocalMetamorph.RpcMorphTo(Metamorph.LocalMetamorph.OrignalInfo);
             }
 
-            if (startCooldown) StartCooldown();
+            StartCooldown();
         }
 
-        public void SetTarget(MorphInfo target, MorphInfo original)
+        public void SetTarget(MorphInfo target)
         {
             if (!IsEffectActive && !IsCoolingDown)
             {
                 this.morphTarget = target;
-                this.morphOriginal = original;
+                killButtonManager.renderer.sprite = sprites[morphTarget.Value.ColorId];
             }
         }
 
-        private void MorphTo(MorphInfo target)
+        public void ClearTarget()
         {
-            PlayerControl.LocalPlayer.RpcSetName(target.Name);
-            //SetOriginalName();
-            PlayerControl.LocalPlayer.RpcSetColor(target.ColorId);
-            PlayerControl.LocalPlayer.RpcSetSkin(target.SkinId);
-            PlayerControl.LocalPlayer.RpcSetHat(target.HatId);
-            PlayerControl.LocalPlayer.RpcSetPet(target.PetId);
-
-            currentMorphColorId = target.ColorId;
-            // Send messages ???
-            //SendMorphMessage(name, colorId, skinId, hatId, petId);
-
-            Metamorphosis.Logger.LogDebug(
-                $@"Morph from {PlayerControl.LocalPlayer.PlayerId} 
-                into {target.PlayerId}: 
-                name: {target.Name}, 
-                color: {target.ColorId}, 
-                skin: {target.SkinId}, 
-                hat: {target.HatId}, 
-                pet: {target.PetId}");
-
-        }
-
-        private void CancelMorph()
-        {
-            if (morphOriginal.HasValue)
-            {
-                MorphTo(morphOriginal.Value);
-            }
+            this.morphTarget = null;
+            killButtonManager.renderer.sprite = sprites[0];
         }
 
         public void PerformMorph(bool startEffext = true)
         {
             if (IsUsable)
             {
-                if (IsEffectActive)
+                if (IsEffectActive && PlayerControl.LocalPlayer.moveable)
                 {
                     EndEffect();
                 }
                 else if (morphTarget.HasValue)
                 {
-                    MorphTo(morphTarget.Value);
-                    morphTarget = null;
+                    Metamorph.LocalMetamorph.RpcMorphTo(morphTarget.Value);
 
                     if (startEffext) StartEffect();
                 }
             }
         }
 
-        protected virtual void Dispose(bool disposing)
+        public void HideButton()
+        {
+            killButtonManager.gameObject.SetActive(false);
+            killButtonManager.renderer.enabled = false;
+            killButtonManager.TimerText.enabled = false;
+        }
+
+        /*protected virtual void Dispose(bool disposing)
         {
             if (!isDisposed)
             {
@@ -269,6 +253,8 @@ namespace Metamorphosis
                             Object.Destroy(sprite);
                         }
                         sprites = null;
+                        Object.Destroy(texture);
+                        texture = null;
 
                         Object.Destroy(killButtonManager);
                     }
@@ -285,6 +271,6 @@ namespace Metamorphosis
             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
-        }
+        }*/
     }
 }

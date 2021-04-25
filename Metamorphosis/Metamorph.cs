@@ -6,16 +6,20 @@ using UnityEngine;
 using Hazel;
 using UnhollowerBaseLib;
 
-using PlayerInfo = GameData.GOOIGLGKMCE;
-using PhysicsHelpers = BFDDHAKIDJF;
-using Constants = DPHADHMAPCB;
+using PlayerInfo = GameData.LGBOMGHJELL;
+using PhysicsHelpers = FJFJIDCFLDJ;
+using Constants = LNCOKMACBKP;
+using Object = UnityEngine.Object;
 
 namespace Metamorphosis
 {
     class Metamorph
     {
+        public static Metamorph LocalMetamorph = null;
+
         private PlayerControl playerControl;
         private PlayerControl lastPlayerContact;
+
 
         public MorphInfo OrignalInfo;
         public byte PlayerId;
@@ -25,13 +29,6 @@ namespace Metamorphosis
             this.playerControl = pc;
             this.PlayerId = pc.PlayerId;
 
-            // Save original apperance
-            /*PlayerInfo playerInfo = playerControl.PKMHEDAKKHE;
-            this.originalName = playerControl.name;
-            this.originalColorId = playerInfo.ACBLKMFEPKC;
-            this.originalSkinId = playerInfo.FHNDEEGICJP;
-            this.originalHatId = playerInfo.KCILOGLJODF;
-            this.originalPetId = playerInfo.HIJJGKGBKOJ; // ??*/
             this.OrignalInfo = new MorphInfo(pc);
         }
 
@@ -39,18 +36,16 @@ namespace Metamorphosis
         {
             if (PlayerControl.AllPlayerControls.Count > 1)
             {
-                if (PlayerId == PlayerControl.LocalPlayer.PlayerId)
+                if (isAlive())
                 {
-                    if (isAlive())
+                    if (playerControl.POECPOEKKNO)
                     {
-                        if (playerControl.MPEOHLJNPOB)
-                        {
-                            PlayerControl closestPlayer = FindClosestTarget(PlayerControl.LocalPlayer);
+                        PlayerControl closestPlayer = FindClosestTarget(PlayerControl.LocalPlayer);
 
-                            if (closestPlayer != null && !PlayerControlPatch.IsMetamorph(closestPlayer))
-                            {
-                                lastPlayerContact = closestPlayer;
-                            }
+                        Metamorph outMetamorph = null;
+                        if (closestPlayer != null && !PlayerControlPatch.IsMetamorph(closestPlayer.PlayerId, out outMetamorph))
+                        {
+                            lastPlayerContact = closestPlayer;
                         }
                     }
                 }
@@ -61,69 +56,142 @@ namespace Metamorphosis
         {
             if (PlayerControl.AllPlayerControls.Count > 1)
             {
-                if (PlayerId == PlayerControl.LocalPlayer.PlayerId)
+                HudManagerPatch.MorphButton.Visible = true;
+                if (!isAlive())
                 {
-                    HudManagerPatch.MorphButton.Visible = true;
-                    if (!isAlive())
+                    HudManagerPatch.MorphButton.Clickable = false;
+                }
+                else
+                {
+                    if (playerControl.POECPOEKKNO)
                     {
-                        HudManagerPatch.MorphButton.Clickable = false;
-                    }
-                    else
-                    {
-                        if (playerControl.MPEOHLJNPOB)
+                        if (lastPlayerContact != null && !HudManagerPatch.MorphButton.IsEffectActive)
                         {
-                            if (lastPlayerContact != null && !HudManagerPatch.MorphButton.IsEffectActive)
-                            {
-                                MorphInfo target = new MorphInfo(lastPlayerContact);
-                                HudManagerPatch.MorphButton.SetTarget(target, OrignalInfo);
-                                lastPlayerContact = null;
-                            }
-                            if (Input.GetKeyDownInt(KeyCode.F))
-                            {
-                                HudManagerPatch.MorphButton.PerformMorph();
-                            }
+                            MorphInfo target = new MorphInfo(lastPlayerContact);
+                            HudManagerPatch.MorphButton.SetTarget(target);
+                            lastPlayerContact = null;
+                        }
+                        if (Input.GetKeyDown(KeyCode.F))
+                        {
+                            HudManagerPatch.MorphButton.PerformMorph();
                         }
                     }
                 }
             }
         }
 
-        /*public void SendMorphMessage(string name, byte colorId, uint skinId, uint hatId, uint petId)
+        public void MorphTo(MorphInfo target, bool updateName = true)
         {
-            MessageWriter messageWriter = AmongUsClient.Instance.StartRpc(PlayerControl.LocalPlayer.NetId, (byte)CustomRPC.Morph, SendOption.Reliable);
-            messageWriter.Write(PlayerControl.LocalPlayer.PlayerId);
-            messageWriter.Write(name);
-            messageWriter.Write(colorId);
-            messageWriter.Write(skinId);
-            messageWriter.Write(hatId);
-            messageWriter.Write(petId);
-            messageWriter.EndMessage();
-        }*/
+            Metamorphosis.Logger.LogDebug(
+                $@"Morph from {PlayerControl.LocalPlayer.PlayerId} 
+                into {target.PlayerId}: 
+                name: {target.Name}, 
+                color: {target.ColorId}, 
+                skin: {target.SkinId}, 
+                hat: {target.HatId}, 
+                pet: {target.PetId}");
+
+            if (updateName)
+                playerControl.nameText.text = target.Name;
+            playerControl.KJAENOGGEOK.material.SetColor("_BackColor", Palette.ShadowColors[target.ColorId]);
+            playerControl.KJAENOGGEOK.material.SetColor("_BodyColor", Palette.PlayerColors[target.ColorId]);
+            playerControl.HatRenderer.SetHat(target.HatId, target.ColorId);
+            playerControl.nameText.transform.localPosition = new Vector3(0f, (target.HatId == 0U) ? 0.7f : 1.05f, -0.5f);
+            
+            PlayerPhysics playerPhysics = playerControl.MyPhysics;
+            if (playerControl.MyPhysics.Skin.skin.ProdId != DestroyableSingleton<HatManager>.MGCNALHEEBA.AllSkins[(int)target.SkinId].ProdId)
+            {
+                SkinData nextSkin = DestroyableSingleton<HatManager>.MGCNALHEEBA.AllSkins[(int)target.SkinId];
+                AnimationClip clip = null;
+                var spriteAnim = playerPhysics.Skin.animator;
+                var anim = spriteAnim.m_animator;
+                var skinLayer = playerPhysics.Skin;
+
+                AnimationClip currentPhysicsAnim = playerPhysics.NIKGMJIKBMP.GetCurrentAnimation();
+                if (currentPhysicsAnim == playerPhysics.RunAnim)
+                    clip = nextSkin.RunAnim;
+                else if (currentPhysicsAnim == playerPhysics.SpawnAnim)
+                    clip = nextSkin.SpawnAnim;
+                else if (currentPhysicsAnim == playerPhysics.EnterVentAnim)
+                    clip = nextSkin.EnterVentAnim;
+                else if (currentPhysicsAnim == playerPhysics.ExitVentAnim)
+                    clip = nextSkin.ExitVentAnim;
+                else if (currentPhysicsAnim == playerPhysics.IdleAnim)
+                    clip = nextSkin.IdleAnim;
+                else
+                    clip = nextSkin.IdleAnim;
+
+                float progress = playerPhysics.NIKGMJIKBMP.m_animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
+                skinLayer.skin = nextSkin;
+
+                spriteAnim.Play(clip, 1f);
+                anim.Play("a", 0, progress % 1);
+                anim.Update(0f);
+            }
+
+            if (playerControl.CurrentPet == null || playerControl.CurrentPet.ProductId != HatManager.MGCNALHEEBA.AllPets[(int)target.PetId].ProductId)
+            {
+                if (playerControl.CurrentPet)
+                    Object.Destroy(playerControl.CurrentPet.gameObject);
+                
+                playerControl.CurrentPet = Object.Instantiate<PetBehaviour>(HatManager.MGCNALHEEBA.AllPets[(int)target.PetId]);
+                playerControl.CurrentPet.transform.position = playerControl.transform.position;
+                playerControl.CurrentPet.Source = playerControl;
+                playerControl.CurrentPet.BDBDGFDELMB = playerControl.BDBDGFDELMB;
+                PlayerControl.SetPlayerMaterialColors(target.ColorId, playerControl.CurrentPet.rend);
+            }
+            else if (playerControl.CurrentPet) 
+            {
+                PlayerControl.SetPlayerMaterialColors(target.ColorId, playerControl.CurrentPet.rend);
+            }
+        }
+
+        public void RpcMorphTo(MorphInfo target)
+        {
+            Metamorphosis.Logger.LogDebug($"Rpc Morp to");
+            MessageWriter writer = AmongUsClient.Instance.StartRpc(PlayerControl.LocalPlayer.NetId, (byte)CustomRPC.SetMorph, Hazel.SendOption.Reliable);
+            writer.Write(PlayerControl.LocalPlayer.PlayerId);
+            writer.Write(target.Name);
+            writer.Write(target.ColorId);
+            writer.Write(target.SkinId);
+            writer.Write(target.HatId);
+            writer.Write(target.PetId);
+            writer.EndMessage();
+
+            MorphTo(target, false);
+        }
 
         public void MorphBack()
         {
-            playerControl.SetName(OrignalInfo.Name);
-            playerControl.SetColor(OrignalInfo.ColorId);
-            playerControl.SetSkin(OrignalInfo.SkinId);
-            playerControl.SetHat(OrignalInfo.HatId, 0);
-            playerControl.SetPet(OrignalInfo.PetId);
+            Metamorphosis.Logger.LogMessage($"Morph back");
 
-            // Send messages ???
-            //SendMorphMessage(originalName, originalColorId, originalSkinId, originalHatId, originalPetId);
+            /*if (!playerControl.moveable)
+            {
+                playerControl.SetName(OrignalInfo.Name);
+                playerControl.SetColor(OrignalInfo.ColorId);
+                playerControl.SetSkin(OrignalInfo.SkinId);
+                playerControl.SetHat(OrignalInfo.HatId, OrignalInfo.ColorId);
+                playerControl.SetPet(OrignalInfo.PetId);
+                playerControl.CurrentPet.CAMJPMDIIMN = playerControl.CAMJPMDIIMN;
+            }
+            else
+            {*/
+                MorphTo(OrignalInfo);
+            //}
 
-            Metamorphosis.Logger.LogDebug("Morph back");
-        }
-
-        public void SetOriginalName()
-        {
-            Metamorphosis.Logger.LogMessage($"SetOriginalName: {OrignalInfo.Name}");
-            playerControl.nameText.Text = OrignalInfo.Name;
+            if (LocalMetamorph != null)
+            {
+                if (HudManagerPatch.MorphButton != null)
+                {
+                    HudManagerPatch.MorphButton.EndEffect(false);
+                }
+            }
         }
 
         public PlayerControl FindClosestTarget(PlayerControl player)
         {
             PlayerControl result = null;
-            float num = 0.4f;//GameOptionsData.EEPBOJKJCAJ[Mathf.Clamp(PlayerControl.GameOptions.GEMCDKBIFGG, 0, 2)];
+            float num = 0.4f;
             if (!ShipStatus.Instance)
             {
                 return null;
@@ -133,14 +201,14 @@ namespace Metamorphosis
             for (int i = 0; i < allPlayers.Count; i++)
             {
                 PlayerInfo playerInfo = allPlayers[i];
-                if (!playerInfo.HGCENMAGBJO && playerInfo.FMAAJCIEMEH != player.PlayerId && !playerInfo.AKOHOAJIHBE && !playerInfo.IBJBIALCEKB.inVent)
+                if (!playerInfo.MFFAGDHDHLO && playerInfo.FNPNJHNKEBK != player.PlayerId && !playerInfo.IAGJEKLJCCI && !playerInfo.GJPBCGFPMOD.inVent)
                 {
-                    PlayerControl obj = playerInfo.IBJBIALCEKB;
+                    PlayerControl obj = playerInfo.GJPBCGFPMOD;
                     if (obj)
                     {
                         Vector2 vector = obj.GetTruePosition() - truePosition;
                         float magnitude = vector.magnitude;
-                        if (magnitude <= num && !PhysicsHelpers.OEEHJJNGMLJ(truePosition, vector.normalized, magnitude, Constants.EOJPPJKOKFH))
+                        if (magnitude <= num && !PhysicsHelpers.HLIEDNLNBBH(truePosition, vector.normalized, magnitude, Constants.LEOCDMEJGPA))
                         {
                             result = obj;
                             num = magnitude;
@@ -155,7 +223,7 @@ namespace Metamorphosis
         {
             if (playerControl != null)
             {
-                return !playerControl.PKMHEDAKKHE.AKOHOAJIHBE;
+                return !playerControl.FIMGDJOCIGD.IAGJEKLJCCI;
             }
             return false;
         }
