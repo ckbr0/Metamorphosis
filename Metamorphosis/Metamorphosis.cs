@@ -9,7 +9,7 @@ using System.Net;
 
 namespace Metamorphosis
 {
-    [BepInPlugin("org.bepinex.plugins.Metamorphosis", "Metamorphosis", "0.5.0.0")]
+    [BepInPlugin("org.bepinex.plugins.Metamorphosis", "Metamorphosis", "1.1.0.0")]
     [BepInProcess("Among Us.exe")]
     public class Metamorphosis : BasePlugin
     {
